@@ -15,3 +15,5 @@
 .cxx
 local.properties
 backend/.venv/
+backend/requirements.txt
+backend/__pycache__/
