@@ -1,6 +1,7 @@
 //dezactivat
 package com.example.mystflowtb
 
+import model.Post
 import retrofit2.http.GET
 
 interface MystFlowApi {
