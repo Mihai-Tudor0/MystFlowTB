@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import com.example.mystflowtb.LoginRequest
 import androidx.compose.ui.unit.dp
 import com.example.mystflowtb.ui.theme.MystFlowTBTheme
-
+import androidx.lifecycle.viewmodel.compose.viewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -206,10 +206,22 @@ class MainActivity : ComponentActivity() {
             )
 
             Spacer(modifier = Modifier.height(32.dp))
+            AiSecurityCard(userId = 1)
 
+            Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = { onLogout() }) {
                 Text("Ieși din cont")
             }
         }
+    }
+    @Composable
+    fun AiSecurityCard(viewModel: AiViewModel = viewModel(), userId: Int) {
+        // Apeleaza serverul
+        LaunchedEffect(userId) {
+            viewModel.fetchInsight(userId)
+        }
+
+
+        Text(text = viewModel.insightMessage.value)
     }
 }
