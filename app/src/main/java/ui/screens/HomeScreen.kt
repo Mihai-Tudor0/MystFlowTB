@@ -21,8 +21,7 @@ fun HomeScreen() {
 
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(emeraldDeep),
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
