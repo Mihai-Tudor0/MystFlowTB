@@ -58,4 +58,7 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+    implementation("androidx.biometric:biometric:1.2.0-alpha05")
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
