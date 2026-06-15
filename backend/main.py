@@ -4,11 +4,9 @@ import sqlite3
 
 from database_service import get_user_profile_from_db
 from aiservice import generate_security_insights, generate_chat_response
-from pydantic import BaseModel
+
 app = FastAPI()
 
-
-# config baza de date
 def init_db():
     conn = sqlite3.connect("mystflow.db")
     cursor = conn.cursor()
@@ -23,9 +21,8 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 init_db()
-# nou adaugat
+
 class ChatMessageRequest(BaseModel):
     message: str
 
@@ -33,14 +30,11 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
-
 class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
 
-
-# --- RUTE API EXISTENTE ---
 
 @app.post("/register")
 def register(user: RegisterRequest):
@@ -80,11 +74,8 @@ def login(user: LoginRequest):
         return {"status": "error", "message": "Email sau parolă incorectă."}
 
 
-# analist_ai
-
 @app.get("/ai/insights/{user_id}")
 def get_user_insights(user_id: int):
-
     user_data = get_user_profile_from_db(user_id)
     if not user_data:
         raise HTTPException(status_code=404, detail="Utilizatorul nu a fost găsit")
@@ -97,17 +88,16 @@ def get_user_insights(user_id: int):
         "insight": ai_recommendation
     }
 
-# chat_ai
-@app.post("/ai/chat/{user_id}")
-def chat_with_agent(user_id: int, payload: ChatMessageRequest):
 
-    user_data = get_user_profile_from_db(user_id)
+@app.post("/ai/chat")
+def chat_with_agent(message: str):
+    user_data = get_user_profile_from_db(1)
     if not user_data:
-        raise HTTPException(status_code=404, detail="Utilizatorul nu a fost găsit")
+        user_data = {"username": "Utilizator"}
 
-    ai_reply = generate_chat_response(user_message=payload.message, user_data=user_data)
+    ai_reply = generate_chat_response(user_message=message, user_data=user_data)
 
     return {
         "status": "success",
-        "reply": ai_reply
+        "insight": ai_reply
     }

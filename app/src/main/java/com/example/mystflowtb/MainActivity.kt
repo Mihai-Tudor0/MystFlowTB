@@ -23,24 +23,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MystFlowTBTheme {
+                val aiViewModel: AiViewModel = viewModel()
                 var currentScreen by remember { mutableStateOf("WELCOME") }
-                var authMethod by remember { mutableStateOf("PIN") } // PIN sau Pattern
+                var authMethod by remember { mutableStateOf("PIN") }
 
-                // Definim gradientul vertical premium (de la verde smarald mediu la verde foarte închis)
                 val premiumGradient = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF004D3B), // Sus: Verde Smarald luminos
-                        Color(0xFF00382B), // Mijloc: Emerald Deep standard
-                        Color(0xFF002119)  // Jos: Verde abis (aproape negru)
+                        Color(0xFF004D3B),
+                        Color(0xFF00382B),
+                        Color(0xFF002119)
                     )
                 )
 
-                // Lăsăm Surface transparent pentru a permite Box-ului cu gradient să se vadă
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = Color.Transparent
                 ) {
-                    // Box global care aplică fundalul cu gradient pe toate ecranele
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -77,7 +76,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
-                            "HOME" -> HomeScreen()
+                            "HOME" -> HomeScreen(viewModel = aiViewModel)
                         }
                     }
                 }
