@@ -25,8 +25,8 @@ fun SignUpScreen(
 
     val authState by authViewModel.authState.collectAsState()
 
-    var name by remember { mutableStateOf("") }
-    var surname by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var otpCode by remember { mutableStateOf("") }
 
@@ -56,10 +56,10 @@ fun SignUpScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Name
+            // First Name
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
+                value = firstName,
+                onValueChange = { firstName = it },
                 label = { Text("First Name") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -68,10 +68,10 @@ fun SignUpScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Surname
+            // Last Name
             OutlinedTextField(
-                value = surname,
-                onValueChange = { surname = it },
+                value = lastName,
+                onValueChange = { lastName = it },
                 label = { Text("Last Name") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -105,7 +105,7 @@ fun SignUpScreen(
 
             Button(
                 onClick = { authViewModel.sendOtp(phoneNumber) },
-                enabled = name.isNotBlank() && surname.isNotBlank() && phoneNumber.isNotBlank(),
+                enabled = firstName.isNotBlank() && lastName.isNotBlank() && phoneNumber.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(55.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = roseGold,
@@ -160,8 +160,8 @@ fun SignUpScreen(
                         phoneNumber = phoneNumber,
                         otpCode = otpCode,
                         isSignUp = true,
-                        name = name,
-                        surname = surname
+                        firstName = firstName,
+                        lastName = lastName
                     )
                 },
                 enabled = otpCode.length == 6 && authState !is AuthUiState.Loading,

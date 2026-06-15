@@ -3,12 +3,16 @@
 --  Run this in: Supabase Dashboard → SQL Editor → New Query
 -- ============================================================
 
+-- ⚠️  If you already have an old `profiles` table with `name`/`surname` columns,
+--     uncomment the line below to drop it first, then re-run this script.
+-- DROP TABLE IF EXISTS public.profiles;
+
 -- 1. Create the profiles table
 CREATE TABLE public.profiles (
     -- Link the profile ID to the Supabase Auth user ID
     id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    name         TEXT NOT NULL,
-    surname      TEXT NOT NULL,
+    first_name   TEXT NOT NULL,
+    last_name    TEXT NOT NULL,
     phone_number TEXT UNIQUE NOT NULL,
     created_at   TIMESTAMPTZ DEFAULT now()
 );

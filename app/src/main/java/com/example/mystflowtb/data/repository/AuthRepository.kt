@@ -71,16 +71,16 @@ class AuthRepository(context: Context) {
     // ========================================================================
 
     /**
-     * After successful OTP verification during Sign-Up, save the user's name/surname
+     * After successful OTP verification during Sign-Up, save the user's first/last name
      * to the public.profiles table.
      */
-    suspend fun createProfile(name: String, surname: String, phoneNumber: String) {
+    suspend fun createProfile(firstName: String, lastName: String, phoneNumber: String) {
         val user = auth.currentUserOrNull() ?: throw Exception("User not authenticated")
         
         val profile = UserProfile(
             id = user.id,
-            name = name,
-            surname = surname,
+            firstName = firstName,
+            lastName = lastName,
             phoneNumber = phoneNumber
         )
 

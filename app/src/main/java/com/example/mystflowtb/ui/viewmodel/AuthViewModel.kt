@@ -93,7 +93,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         }
     }
 
-    fun verifyOtp(phoneNumber: String, otpCode: String, isSignUp: Boolean, name: String = "", surname: String = "") {
+    fun verifyOtp(phoneNumber: String, otpCode: String, isSignUp: Boolean, firstName: String = "", lastName: String = "") {
         viewModelScope.launch {
             _authState.value = AuthUiState.Loading
             try {
@@ -101,7 +101,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 
                 if (isSignUp) {
                     // Create the profile in the database
-                    repository.createProfile(name, surname, phoneNumber)
+                    repository.createProfile(firstName, lastName, phoneNumber)
                 }
                 
                 _authState.value = AuthUiState.OtpVerified

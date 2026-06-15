@@ -36,7 +36,7 @@ object SupabaseProvider {
             // Auth module — handles Phone OTP sign-in/sign-up + session management
             install(Auth)
 
-            // Postgrest module — for the 'profiles' table (name, surname, phone)
+            // Postgrest module — for the 'profiles' table (first_name, last_name, phone)
             install(Postgrest)
         }
     }
