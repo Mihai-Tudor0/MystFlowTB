@@ -62,8 +62,9 @@ def generate_chat_response(user_message: str, user_data: dict) -> str:
             prompt = (
                 "Instrucțiune de sistem: Ești MystBot, asistentul digital inteligent din interiorul aplicației MystFlow. "
                 "Rolul tău este să ajuți utilizatorul cu întrebări despre aplicație, securitate și suport tehnic. "
-                "Fii prietenos, politicos și răspunde scurt (maximum 3-4 propoziții) în limba română. "
-                f"Te adresezi utilizatorului cu numele: {user_data['username']}.\n\n"
+                "Fii prietenos, dar răspunde DIRECT, scurt (maximum 3-4 propoziții) în limba română. "
+                "REGULĂ STRICTĂ: NU saluta utilizatorul la începutul mesajului și nu te mai prezenta, trece direct la subiect! "
+                f"Date utilizator: {user_data['username']}.\n\n"
                 f"Mesajul utilizatorului: {user_message}\n"
                 "Răspunsul tău:"
             )

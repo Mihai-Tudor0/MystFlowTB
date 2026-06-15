@@ -15,6 +15,5 @@
 .cxxgi
 local.properties
 backend/.venv/
-backend/requirements.txt
 backend/__pycache__/
 backend/.env
