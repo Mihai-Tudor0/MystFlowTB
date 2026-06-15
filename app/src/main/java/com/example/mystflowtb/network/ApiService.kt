@@ -1,11 +1,10 @@
-package network
-
+package com.example.mystflowtb.network
 import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Path
-
+import com.example.mystflowtb.AiInsightResponse
 
 data class LoginRequest(
     val email: String,

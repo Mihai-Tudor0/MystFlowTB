@@ -1,4 +1,4 @@
-package com.example.mystflowtb.ui.screens
+package com.example.mystflowtb.screens
 
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas

@@ -1,5 +1,6 @@
-package com.example.mystflowtb.ui.screens
+package com.example.mystflowtb.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -46,7 +47,7 @@ fun SignUpScreen(onMethodSelected: (String) -> Unit) {
                 containerColor = if (tempSelection == "PIN") roseGold.copy(alpha = 0.1f) else Color.Transparent,
                 contentColor = roseGold
             ),
-            border = androidx.compose.foundation.BorderStroke(
+            border = BorderStroke(
                 width = if (tempSelection == "PIN") 3.dp else 1.dp,
                 color = roseGold
             )
@@ -65,7 +66,7 @@ fun SignUpScreen(onMethodSelected: (String) -> Unit) {
                 containerColor = if (tempSelection == "Pattern") roseGold.copy(alpha = 0.1f) else Color.Transparent,
                 contentColor = roseGold
             ),
-            border = androidx.compose.foundation.BorderStroke(
+            border = BorderStroke(
                 width = if (tempSelection == "Pattern") 3.dp else 1.dp,
                 color = roseGold
             )

@@ -4,7 +4,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-
+import com.example.mystflowtb.network.ApiClient
+import com.example.mystflowtb.AiInsightResponse
 class AiViewModel : ViewModel() {
 
     var insightMessage = mutableStateOf("Se analizează securitatea contului...")

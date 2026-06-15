@@ -1,4 +1,4 @@
-package com.example.mystflowtb.ui.screens
+package com.example.mystflowtb.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures

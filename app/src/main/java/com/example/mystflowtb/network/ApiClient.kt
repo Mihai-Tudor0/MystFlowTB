@@ -1,4 +1,4 @@
-package network
+package com.example.mystflowtb.network
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory

@@ -1,4 +1,4 @@
-package com.example.mystflowtb.ui.screens
+package com.example.mystflowtb.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
