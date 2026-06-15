@@ -1,7 +1,6 @@
 package com.example.mystflowtb
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -11,18 +10,29 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mystflowtb.ui.screens.*
 import com.example.mystflowtb.ui.theme.MystFlowTBTheme
+import com.example.mystflowtb.ui.viewmodel.AuthViewModel
+import com.example.mystflowtb.ui.viewmodel.AuthViewModelFactory
 
-class MainActivity : ComponentActivity() {
+// Must extend FragmentActivity for AndroidX BiometricPrompt
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MystFlowTBTheme {
-                var currentScreen by remember { mutableStateOf("WELCOME") }
-                var authMethod by remember { mutableStateOf("PIN") } // PIN sau Pattern
+                val factory = AuthViewModelFactory(this.applicationContext)
+                val authViewModel: AuthViewModel = viewModel(factory = factory)
 
-                // Definim gradientul vertical premium (de la verde smarald mediu la verde foarte închis)
+                // Navigation State
+                var currentScreen by remember { 
+                    mutableStateOf(
+                        if (authViewModel.hasActiveSessionAndLocalPin()) "LOCAL_AUTH" else "WELCOME"
+                    ) 
+                }
+
                 val premiumGradient = Brush.verticalGradient(
                     colors = listOf(
                         Color(0xFF004D3B), // Sus: Verde Smarald luminos
@@ -31,12 +41,10 @@ class MainActivity : ComponentActivity() {
                     )
                 )
 
-                // Lăsăm Surface transparent pentru a permite Box-ului cu gradient să se vadă
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = Color.Transparent
                 ) {
-                    // Box global care aplică fundalul cu gradient pe toate ecranele
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -52,24 +60,39 @@ class MainActivity : ComponentActivity() {
                             }
                             "LOGIN" -> {
                                 LoginScreen(
-                                    authMethod = authMethod,
+                                    authViewModel = authViewModel,
                                     onNavigateToSignUp = { currentScreen = "SIGNUP" },
-                                    onLoginSuccess = { currentScreen = "HOME" }
+                                    onLoginSuccess = { currentScreen = "HOME" },
+                                    onSetupNeeded = { currentScreen = "SETUP" }
                                 )
                             }
-                            "SIGNUP" -> SignUpScreen(
-                                onMethodSelected = { metoda ->
-                                    authMethod = metoda
-                                    currentScreen = "SETUP"
-                                }
-                            )
-                            "SETUP" -> SetupScreen(
-                                method = authMethod,
-                                onFinished = { codSalvat ->
-                                    currentScreen = "LOGIN"
-                                }
-                            )
-                            "HOME" -> HomeScreen()
+                            "SIGNUP" -> {
+                                SignUpScreen(
+                                    authViewModel = authViewModel,
+                                    onRegistrationComplete = { currentScreen = "SETUP" }
+                                )
+                            }
+                            "SETUP" -> {
+                                SetupScreen(
+                                    authViewModel = authViewModel,
+                                    onFinished = {
+                                        currentScreen = "HOME"
+                                    }
+                                )
+                            }
+                            "LOCAL_AUTH" -> {
+                                LocalAuthScreen(
+                                    authViewModel = authViewModel,
+                                    onAuthSuccess = { currentScreen = "HOME" },
+                                    onLogout = { 
+                                        authViewModel.signOut()
+                                        currentScreen = "WELCOME" 
+                                    }
+                                )
+                            }
+                            "HOME" -> {
+                                HomeScreen()
+                            }
                         }
                     }
                 }
