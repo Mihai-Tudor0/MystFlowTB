@@ -31,6 +31,8 @@ import com.example.mystflowtb.data.model.UserProfile
 import com.example.mystflowtb.ui.viewmodel.BankingViewModel
 import java.text.NumberFormat
 import java.util.Locale
+import io.github.jan.supabase.auth.auth
+import com.example.mystflowtb.data.remote.SupabaseProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,10 +64,12 @@ fun HomeScreen(
     val lazyListState = rememberLazyListState()
 
     val transactions by bankingViewModel.transactions.collectAsState()
-
+    val currentUserId = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: ""
     // Load data on first composition
     LaunchedEffect(Unit) {
-        aiViewModel.fetchInsight(userId = 1)
+        if (currentUserId.isNotEmpty()) {
+            aiViewModel.fetchInsight(userId = currentUserId)
+        }
         bankingViewModel.loadTransactions()
         showInsightDialog = true
     }
@@ -579,7 +583,18 @@ fun HomeScreen(
                                     chatMessages.add(Pair(textTrimis, true))
                                     userChatMessage = ""
                                     isWaitingForBot = true
-                                    aiViewModel.fetchChatResponse(textTrimis)
+
+                                    // if(ID valid de la Supabase)
+                                    if (currentUserId.isNotEmpty()) {
+                                        aiViewModel.fetchChatResponse(
+                                            message = textTrimis,
+                                            userId = currentUserId
+                                        )
+                                    } else {
+                                        // Fallback
+                                        chatMessages.add(Pair("Eroare: Sesiune expirată.", false))
+                                        isWaitingForBot = false
+                                    }
                                 }
                             },
                             containerColor = roseGold,
