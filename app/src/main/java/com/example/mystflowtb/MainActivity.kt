@@ -1,214 +1,158 @@
 package com.example.mystflowtb
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import kotlinx.coroutines.launch
-import com.example.mystflowtb.LoginRequest
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.mystflowtb.ui.screens.*
 import com.example.mystflowtb.ui.theme.MystFlowTBTheme
+import com.example.mystflowtb.ui.viewmodel.AuthViewModel
+import com.example.mystflowtb.ui.viewmodel.AuthViewModelFactory
+import com.example.mystflowtb.ui.viewmodel.BankingViewModel
+import com.example.mystflowtb.ui.viewmodel.BankingViewModelFactory
 
-class MainActivity : ComponentActivity() {
+// Must extend FragmentActivity for AndroidX BiometricPrompt
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             MystFlowTBTheme {
-                var isLoggedIn by remember { mutableStateOf(false) }
-                var isRegistering by remember { mutableStateOf(false) }
+                val factory = AuthViewModelFactory(this.applicationContext)
+                val authViewModel: AuthViewModel = viewModel(factory = factory)
+                val aiViewModel: AiViewModel = viewModel()
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    when {
-                        isLoggedIn -> {
-                            HomeScreen(onLogout = { isLoggedIn = false })
-                        }
+                // BankingViewModel shares the same repository as AuthViewModel
+                val bankingFactory = remember { BankingViewModelFactory(authViewModel.repository) }
+                val bankingViewModel: BankingViewModel = viewModel(factory = bankingFactory)
 
-                        isRegistering -> {
-                            RegisterScreen(
-                                onRegisterSuccess = {
-                                    isRegistering = false
-                                },
-                                onBackToLogin = {
-                                    isRegistering = false
+                // Observe current user profile
+                val currentUser by authViewModel.currentUser.collectAsState()
+
+                // Navigation State
+                var currentScreen by remember {
+                    mutableStateOf(
+                        if (authViewModel.hasActiveSessionAndLocalPin()) "LOCAL_AUTH" else "WELCOME"
+                    )
+                }
+
+                val premiumGradient = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF004D3B), // Sus: Verde Smarald luminos
+                        Color(0xFF00382B), // Mijloc: Emerald Deep standard
+                        Color(0xFF002119)  // Jos: Verde abis (aproape negru)
+                    )
+                )
+
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color.Transparent
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(premiumGradient)
+                    ) {
+                        when (currentScreen) {
+                            "WELCOME" -> {
+                                WelcomeScreen(
+                                    onNextClicked = {
+                                        currentScreen = "LOGIN"
+                                    }
+                                )
+                            }
+                            "LOGIN" -> {
+                                LoginScreen(
+                                    authViewModel = authViewModel,
+                                    onNavigateToSignUp = { currentScreen = "SIGNUP" },
+                                    onLoginSuccess = { currentScreen = "HOME" },
+                                    onSetupNeeded = { currentScreen = "SETUP" }
+                                )
+                            }
+                            "SIGNUP" -> {
+                                SignUpScreen(
+                                    authViewModel = authViewModel,
+                                    onRegistrationComplete = { currentScreen = "SETUP" }
+                                )
+                            }
+                            "SETUP" -> {
+                                SetupScreen(
+                                    authViewModel = authViewModel,
+                                    onFinished = {
+                                        currentScreen = "HOME"
+                                    }
+                                )
+                            }
+                            "LOCAL_AUTH" -> {
+                                LocalAuthScreen(
+                                    authViewModel = authViewModel,
+                                    onAuthSuccess = { currentScreen = "HOME" },
+                                    onLogout = {
+                                        authViewModel.signOut()
+                                        currentScreen = "WELCOME"
+                                    }
+                                )
+                            }
+                            "HOME" -> {
+                                // Refresh profile data every time we enter HomeScreen
+                                LaunchedEffect(Unit) {
+                                    authViewModel.loadCurrentProfile()
+                                    bankingViewModel.refreshProfile()
+                                    bankingViewModel.loadTransactions()
                                 }
-                            )
-                        }
 
-                        else -> {
-                            LoginScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                onLoginSuccess = { isLoggedIn = true },
-                                onGoToRegister = { isRegistering = true })
+                                // Use the freshest profile from either source
+                                val bankingProfile by bankingViewModel.currentProfile.collectAsState()
+                                val displayProfile = bankingProfile ?: currentUser
+
+                                HomeScreen(
+                                    aiViewModel = aiViewModel,
+                                    bankingViewModel = bankingViewModel,
+                                    userProfile = displayProfile,
+                                    onNavigateToTopUp = { currentScreen = "TOP_UP" },
+                                    onNavigateToTransfer = { currentScreen = "TRANSFER" },
+                                    onLogout = {
+                                        authViewModel.signOut()
+                                        currentScreen = "WELCOME"
+                                    }
+                                )
+                            }
+                            "TOP_UP" -> {
+                                TopUpScreen(
+                                    bankingViewModel = bankingViewModel,
+                                    onBack = {
+                                        // Refresh profile when coming back
+                                        authViewModel.loadCurrentProfile()
+                                        bankingViewModel.refreshProfile()
+                                        currentScreen = "HOME"
+                                    }
+                                )
+                            }
+                            "TRANSFER" -> {
+                                val bankingProfile by bankingViewModel.currentProfile.collectAsState()
+                                val displayProfile = bankingProfile ?: currentUser
+
+                                TransferScreen(
+                                    bankingViewModel = bankingViewModel,
+                                    userProfile = displayProfile,
+                                    onBack = {
+                                        // Refresh profile when coming back
+                                        authViewModel.loadCurrentProfile()
+                                        bankingViewModel.refreshProfile()
+                                        currentScreen = "HOME"
+                                    }
+                                )
+                            }
                         }
                     }
                 }
-            }
-        }
-    }
-
-    @Composable
-    fun LoginScreen(modifier: Modifier = Modifier, onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
-        var email by remember { mutableStateOf("") }
-        var password by remember { mutableStateOf("") }
-        val scope = rememberCoroutineScope()
-        var mesajServer by remember { mutableStateOf("") }
-        Column(
-            modifier = modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = "MystFlow Login", style = MaterialTheme.typography.headlineMedium)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Parolă") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = {
-                    scope.launch {
-                        try {
-                            val response = ApiClient.apiService.login(
-                                LoginRequest(email = email, password = password)
-                            )
-                            mesajServer = response.message
-                            if (response.status == "success") {
-                                onLoginSuccess()
-                            }
-                        } catch (e: Exception) {
-                            mesajServer = "Eroare: ${e.localizedMessage}"
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Intră în cont")
-            }
-            TextButton(onClick = onGoToRegister) {
-                Text("Nu ai cont? Creează unul nou")
-            }
-            if (mesajServer.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(text = mesajServer, color = MaterialTheme.colorScheme.primary)
-            }
-
-        }
-    }
-
-    @Composable
-    fun RegisterScreen(onRegisterSuccess: () -> Unit, onBackToLogin: () -> Unit) {
-        var username by remember { mutableStateOf("") }
-        var email by remember { mutableStateOf("") }
-        var password by remember { mutableStateOf("") }
-        var mesajServer by remember { mutableStateOf("") }
-        val scope = rememberCoroutineScope()
-
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("Creează un cont nou", style = MaterialTheme.typography.headlineMedium)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
-                label = { Text("Nume utilizator") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Parolă") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = {
-                    scope.launch {
-                        try {
-                            val response = ApiClient.apiService.register(
-                                RegisterRequest(username, email, password)
-                            )
-                            mesajServer = response.message
-                            if (response.status == "success") {
-                                onRegisterSuccess()
-                            }
-                        } catch (e: Exception) {
-                            mesajServer = "Eroare: ${e.localizedMessage}"
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Înregistrează-te")
-            }
-
-            TextButton(onClick = onBackToLogin) {
-                Text("Ai deja cont? Loghează-te aici")
-            }
-
-            if (mesajServer.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(text = mesajServer, color = MaterialTheme.colorScheme.primary)
-            }
-        }
-    }
-
-    @Composable
-    fun HomeScreen(onLogout: () -> Unit) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-
-            Text(
-                text = "Ai intrat în cont cu succes!",
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(onClick = { onLogout() }) {
-                Text("Ieși din cont")
             }
         }
     }

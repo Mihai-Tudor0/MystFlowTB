@@ -1,0 +1,176 @@
+package com.example.mystflowtb.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.mystflowtb.ui.viewmodel.AuthUiState
+import com.example.mystflowtb.ui.viewmodel.AuthViewModel
+
+@Composable
+fun LoginScreen(
+    authViewModel: AuthViewModel,
+    onNavigateToSignUp: () -> Unit,
+    onLoginSuccess: () -> Unit, // Navigates to SetupScreen if PIN not set, else Home
+    onSetupNeeded: () -> Unit
+) {
+    val emeraldDeep = Color(0xFF00382B)
+    val roseGold = Color(0xFFD4A77D)
+
+    val authState by authViewModel.authState.collectAsState()
+
+    var phoneNumber by remember { mutableStateOf("") }
+    var otpCode by remember { mutableStateOf("") }
+
+    // Navigate on successful OTP verification
+    LaunchedEffect(authState) {
+        if (authState is AuthUiState.OtpVerified || authState is AuthUiState.Success) {
+            authViewModel.resetState()
+            
+            // If they don't have a local PIN set up (e.g. new device), force setup
+            if (authViewModel.hasActiveSessionAndLocalPin()) {
+                onLoginSuccess()
+            } else {
+                onSetupNeeded()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (authState !is AuthUiState.OtpSent && authState !is AuthUiState.Loading && authState !is AuthUiState.OtpVerified) {
+            // ================= STEP 1: Phone Input =================
+            Text(
+                text = "Log In",
+                color = roseGold,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Phone
+            OutlinedTextField(
+                value = phoneNumber,
+                onValueChange = { phoneNumber = it },
+                label = { Text("Phone Number (e.g. +407...)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = defaultTextFieldColors(roseGold)
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Error message
+            if (authState is AuthUiState.Error) {
+                Text(
+                    text = (authState as AuthUiState.Error).message,
+                    color = Color(0xFFFF6B6B),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+
+            Button(
+                onClick = { authViewModel.sendOtp(phoneNumber) },
+                enabled = phoneNumber.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().height(55.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = roseGold,
+                    disabledContainerColor = roseGold.copy(alpha = 0.3f)
+                ),
+                shape = RoundedCornerShape(28.dp)
+            ) {
+                Text("SEND SMS CODE", color = emeraldDeep, fontWeight = FontWeight.ExtraBold)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            TextButton(onClick = onNavigateToSignUp) {
+                Text("Don't have an account? Register", color = roseGold.copy(alpha = 0.8f))
+            }
+
+        } else {
+            // ================= STEP 2: OTP Verification =================
+            Text(
+                text = "Verify your number",
+                color = roseGold,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Enter the 6-digit code sent to $phoneNumber",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            OutlinedTextField(
+                value = otpCode,
+                onValueChange = { if (it.length <= 6) otpCode = it },
+                label = { Text("SMS Code") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = defaultTextFieldColors(roseGold)
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Error message
+            if (authState is AuthUiState.Error) {
+                Text(
+                    text = (authState as AuthUiState.Error).message,
+                    color = Color(0xFFFF6B6B),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+
+            Button(
+                onClick = {
+                    authViewModel.verifyOtp(
+                        phoneNumber = phoneNumber,
+                        otpCode = otpCode,
+                        isSignUp = false
+                    )
+                },
+                enabled = otpCode.length == 6 && authState !is AuthUiState.Loading,
+                modifier = Modifier.fillMaxWidth().height(55.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = roseGold,
+                    disabledContainerColor = roseGold.copy(alpha = 0.3f)
+                ),
+                shape = RoundedCornerShape(28.dp)
+            ) {
+                if (authState is AuthUiState.Loading) {
+                    CircularProgressIndicator(color = emeraldDeep, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("VERIFY", color = emeraldDeep, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            TextButton(onClick = { authViewModel.resetState() }) {
+                Text("Change phone number", color = roseGold)
+            }
+        }
+    }
+}

@@ -1,4 +1,4 @@
-package com.example.mystflowtb
+package com.example.mystflowtb.model
 
 data class Post(
     val userId: Int,
