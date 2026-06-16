@@ -6,7 +6,9 @@ import kotlinx.serialization.Serializable
 /**
  * Maps to the `profiles` table in Supabase.
  *
- * This table stores user profile data (first_name, last_name, phone).
+ * This table stores user profile data (first_name, last_name, phone),
+ * the account balance, and the unique card number.
+ *
  * Authentication is handled entirely by Supabase Auth (Phone OTP) —
  * no passwords or PINs are stored in this table.
  *
@@ -25,6 +27,13 @@ data class UserProfile(
 
     @SerialName("phone_number")
     val phoneNumber: String,
+
+    /** Account balance in RON */
+    val balance: Double = 0.0,
+
+    /** Unique 16-digit card number (e.g., "4821 7364 0012 8891") */
+    @SerialName("card_number")
+    val cardNumber: String? = null,
 
     @SerialName("created_at")
     val createdAt: String? = null

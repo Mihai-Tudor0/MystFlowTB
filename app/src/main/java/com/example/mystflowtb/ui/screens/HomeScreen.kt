@@ -4,29 +4,54 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.mystflowtb.AiViewModel
+import com.example.mystflowtb.data.model.Transaction
+import com.example.mystflowtb.data.model.UserProfile
+import com.example.mystflowtb.ui.viewmodel.BankingViewModel
+import java.text.NumberFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(viewModel: AiViewModel) {
+fun HomeScreen(
+    aiViewModel: AiViewModel,
+    bankingViewModel: BankingViewModel,
+    userProfile: UserProfile?,
+    onNavigateToTopUp: () -> Unit,
+    onNavigateToTransfer: () -> Unit,
+    onLogout: () -> Unit
+) {
     val roseGold = Color(0xFFD4A77D)
     val emeraldDeep = Color(0xFF00382B)
     val cardBackground = Color(0xFF002920)
+
+    val firstName = userProfile?.firstName ?: "Utilizator"
+    val lastName = userProfile?.lastName ?: ""
+    val balance = userProfile?.balance ?: 0.0
+    val cardNumber = userProfile?.cardNumber ?: "0000000000000000"
+
+    val clipboardManager = LocalClipboardManager.current
 
     var showInsightDialog by remember { mutableStateOf(false) }
     var showChatDialog by remember { mutableStateOf(false) }
@@ -36,14 +61,18 @@ fun HomeScreen(viewModel: AiViewModel) {
 
     val lazyListState = rememberLazyListState()
 
+    val transactions by bankingViewModel.transactions.collectAsState()
+
+    // Load data on first composition
     LaunchedEffect(Unit) {
-        viewModel.fetchInsight(userId = 1)
+        aiViewModel.fetchInsight(userId = 1)
+        bankingViewModel.loadTransactions()
         showInsightDialog = true
     }
 
-    LaunchedEffect(viewModel.chatResponse.value) {
-        if (viewModel.chatResponse.value.isNotBlank()) {
-            chatMessages.add(Pair(viewModel.chatResponse.value, false))
+    LaunchedEffect(aiViewModel.chatResponse.value) {
+        if (aiViewModel.chatResponse.value.isNotBlank()) {
+            chatMessages.add(Pair(aiViewModel.chatResponse.value, false))
             isWaitingForBot = false
         }
     }
@@ -56,108 +85,317 @@ fun HomeScreen(viewModel: AiViewModel) {
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(emeraldDeep)
-            .padding(24.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            // ================= HEADER: Greeting + Settings =================
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
                 Row(
-                    modifier = Modifier.clickable { },
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = "Profil", tint = roseGold, modifier = Modifier.size(28.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Contul meu", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-
-                IconButton(onClick = { }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Setări", tint = roseGold, modifier = Modifier.size(28.dp))
+                    Column {
+                        Text(
+                            text = "Bună, $firstName! 👋",
+                            color = roseGold,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "$firstName $lastName",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 14.sp
+                        )
+                    }
+                    IconButton(onClick = onLogout) {
+                        Icon(
+                            Icons.Default.Logout,
+                            contentDescription = "Deconectare",
+                            tint = roseGold,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // ================= BALANCE =================
+            item {
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(text = "Balanță disponibilă", color = Color.LightGray, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = formatBalance(balance),
+                    color = roseGold,
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
-            Text(text = "Balanță disponibilă", color = Color.LightGray, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "14,250.00 RON", color = roseGold, fontSize = 36.sp, fontWeight = FontWeight.Bold)
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = cardBackground),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+            // ================= CARD =================
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF003D2E),
+                                        Color(0xFF001F15)
+                                    )
+                                )
+                            )
+                            .padding(24.dp)
                     ) {
-                        Text(text = "MystFlow Premium", color = Color.White, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Default.CreditCard, contentDescription = "Card", tint = roseGold)
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "MystFlow Premium",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                                Icon(
+                                    Icons.Default.CreditCard,
+                                    contentDescription = "Card",
+                                    tint = roseGold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(28.dp))
+                            Text(
+                                text = formatCardNumber(cardNumber),
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                letterSpacing = 2.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "$firstName $lastName",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 14.sp
+                                )
+                                // Copy card number button
+                                IconButton(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(cardNumber))
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ContentCopy,
+                                        contentDescription = "Copiază nr. card",
+                                        tint = roseGold.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(text = "**** **** **** 8824", color = Color.White, fontSize = 18.sp, letterSpacing = 2.sp)
-                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
 
+            // ================= ACTION BUTTONS: Top Up + Transfer =================
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Top Up
                     Button(
-                        onClick = { },
+                        onClick = onNavigateToTopUp,
                         colors = ButtonDefaults.buttonColors(containerColor = roseGold),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.align(Alignment.End)
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text(text = "Vezi Card", color = emeraldDeep, fontWeight = FontWeight.Bold)
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Alimentează",
+                            tint = emeraldDeep,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Alimentează",
+                            color = emeraldDeep,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                    // Transfer
+                    Button(
+                        onClick = onNavigateToTransfer,
+                        colors = ButtonDefaults.buttonColors(containerColor = cardBackground),
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Transferă",
+                            tint = roseGold,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Transferă",
+                            color = roseGold,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
-
-            Text(text = "Asistență Inteligență Artificială", color = Color.LightGray, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(
-                    onClick = { showInsightDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = cardBackground),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+            // ================= AI SECTION =================
+            item {
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(
+                    text = "Asistență Inteligență Artificială",
+                    color = Color.LightGray,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 8.dp)) {
-                        Icon(Icons.Default.Security, contentDescription = "Security", tint = roseGold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Sfat Securitate", color = Color.White, fontSize = 12.sp, textAlign = TextAlign.Center)
+                    Button(
+                        onClick = { showInsightDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = cardBackground),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Security,
+                                contentDescription = "Security",
+                                tint = roseGold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Sfat Securitate",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = { showChatDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = roseGold),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Chat,
+                                contentDescription = "Chat",
+                                tint = emeraldDeep
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "MystBot Chat",
+                                color = emeraldDeep,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
+            }
 
-                Button(
-                    onClick = { showChatDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = roseGold),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 8.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = emeraldDeep)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("MystBot Chat", color = emeraldDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            // ================= RECENT TRANSACTIONS =================
+            item {
+                Spacer(modifier = Modifier.height(28.dp))
+                Text(
+                    text = "Activitate recentă",
+                    color = Color.LightGray,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (transactions.isEmpty()) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = cardBackground),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Nicio tranzacție încă. Alimentează contul sau primește un transfer!",
+                            color = Color.Gray,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(24.dp)
+                        )
                     }
                 }
+            } else {
+                items(transactions.take(5)) { transaction ->
+                    TransactionItem(
+                        transaction = transaction,
+                        currentUserId = userProfile?.id,
+                        roseGold = roseGold,
+                        cardBackground = cardBackground,
+                        emeraldDeep = emeraldDeep
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            // Bottom spacing
+            item {
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
 
+    // ================= AI INSIGHT DIALOG =================
     if (showInsightDialog) {
         AlertDialog(
             onDismissRequest = { showInsightDialog = false },
-            title = { Text(text = "Analiză Securitate AI 🛡️", color = roseGold, fontWeight = FontWeight.Bold) },
-            text = { Text(text = viewModel.insightMessage.value, color = Color.White) },
+            title = {
+                Text(
+                    text = "Analiză Securitate AI 🛡️",
+                    color = roseGold,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Bună, $firstName! ${aiViewModel.insightMessage.value}",
+                    color = Color.White
+                )
+            },
             containerColor = cardBackground,
             confirmButton = {
                 TextButton(onClick = { showInsightDialog = false }) {
@@ -167,6 +405,7 @@ fun HomeScreen(viewModel: AiViewModel) {
         )
     }
 
+    // ================= CHAT DIALOG =================
     if (showChatDialog) {
         Dialog(onDismissRequest = { showChatDialog = false }) {
             Card(
@@ -178,24 +417,40 @@ fun HomeScreen(viewModel: AiViewModel) {
                     .padding(vertical = 16.dp)
             ) {
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "Discută cu MystBot 🤖", color = roseGold, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Discută cu MystBot 🤖",
+                            color = roseGold,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                         Row {
                             IconButton(onClick = { chatMessages.clear() }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Șterge", tint = Color(0xFFEF5350))
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Șterge",
+                                    tint = Color(0xFFEF5350)
+                                )
                             }
                             IconButton(onClick = { showChatDialog = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Închide", tint = Color.Gray)
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Închide",
+                                    tint = Color.Gray
+                                )
                             }
                         }
                     }
 
-                    Divider(color = Color(0xFF00382B), thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(
+                        color = Color(0xFF00382B),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
 
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         if (chatMessages.isEmpty() && !isWaitingForBot) {
@@ -204,7 +459,9 @@ fun HomeScreen(viewModel: AiViewModel) {
                                 color = Color.Gray,
                                 fontSize = 14.sp,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp)
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .padding(horizontal = 24.dp)
                             )
                         } else {
                             LazyColumn(
@@ -215,7 +472,6 @@ fun HomeScreen(viewModel: AiViewModel) {
                             ) {
                                 items(chatMessages.size) { index ->
                                     val (messageText, isUser) = chatMessages[index]
-
                                     Box(
                                         modifier = Modifier.fillMaxWidth(),
                                         contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
@@ -234,7 +490,7 @@ fun HomeScreen(viewModel: AiViewModel) {
                                         ) {
                                             Text(
                                                 text = messageText,
-                                                color = if (isUser) emeraldDeep else Color.White,
+                                                color = if (isUser) Color(0xFF00382B) else Color.White,
                                                 fontSize = 14.sp,
                                                 modifier = Modifier.padding(12.dp)
                                             )
@@ -249,8 +505,14 @@ fun HomeScreen(viewModel: AiViewModel) {
                                             contentAlignment = Alignment.CenterStart
                                         ) {
                                             Card(
-                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF00382B)),
-                                                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 0.dp, bottomEnd = 16.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = Color(0xFF00382B)
+                                                ),
+                                                shape = RoundedCornerShape(
+                                                    topStart = 16.dp,
+                                                    topEnd = 16.dp,
+                                                    bottomEnd = 16.dp
+                                                ),
                                                 modifier = Modifier.widthIn(max = 240.dp)
                                             ) {
                                                 Row(
@@ -277,7 +539,11 @@ fun HomeScreen(viewModel: AiViewModel) {
                         }
                     }
 
-                    Divider(color = Color(0xFF00382B), thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(
+                        color = Color(0xFF00382B),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -286,7 +552,13 @@ fun HomeScreen(viewModel: AiViewModel) {
                         OutlinedTextField(
                             value = userChatMessage,
                             onValueChange = { userChatMessage = it },
-                            placeholder = { Text("Scrie un mesaj...", color = Color.Gray, fontSize = 14.sp) },
+                            placeholder = {
+                                Text(
+                                    "Scrie un mesaj...",
+                                    color = Color.Gray,
+                                    fontSize = 14.sp
+                                )
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
@@ -307,19 +579,121 @@ fun HomeScreen(viewModel: AiViewModel) {
                                     chatMessages.add(Pair(textTrimis, true))
                                     userChatMessage = ""
                                     isWaitingForBot = true
-                                    viewModel.fetchChatResponse(textTrimis)
+                                    aiViewModel.fetchChatResponse(textTrimis)
                                 }
                             },
                             containerColor = roseGold,
-                            contentColor = emeraldDeep,
+                            contentColor = Color(0xFF00382B),
                             shape = RoundedCornerShape(50.dp),
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Default.Send, contentDescription = "Trimite", modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Default.Send,
+                                contentDescription = "Trimite",
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
             }
         }
     }
-}
+}
+
+// ================= HELPER COMPOSABLES =================
+
+@Composable
+private fun TransactionItem(
+    transaction: Transaction,
+    currentUserId: String?,
+    roseGold: Color,
+    cardBackground: Color,
+    emeraldDeep: Color
+) {
+    val isReceived = transaction.receiverId == currentUserId
+    val isTopUp = transaction.type == "top_up"
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cardBackground),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = when {
+                        isTopUp -> Icons.Default.AccountBalanceWallet
+                        isReceived -> Icons.Default.CallReceived
+                        else -> Icons.Default.CallMade
+                    },
+                    contentDescription = null,
+                    tint = if (isReceived || isTopUp) Color(0xFF4CAF50) else Color(0xFFEF5350),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = when {
+                            isTopUp -> "Alimentare cont"
+                            isReceived -> "Transfer primit"
+                            else -> "Transfer trimis"
+                        },
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = transaction.description ?: "",
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Text(
+                text = "${if (isReceived || isTopUp) "+" else "-"}${formatBalance(transaction.amount)}",
+                color = if (isReceived || isTopUp) Color(0xFF4CAF50) else Color(0xFFEF5350),
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+            )
+        }
+    }
+}
+
+// ================= UTILITY FUNCTIONS =================
+
+/**
+ * Formats a balance value as "12,345.00 RON".
+ */
+fun formatBalance(amount: Double): String {
+    val formatter = NumberFormat.getNumberInstance(Locale("ro", "RO")).apply {
+        minimumFractionDigits = 2
+        maximumFractionDigits = 2
+    }
+    return "${formatter.format(amount)} RON"
+}
+
+/**
+ * Formats a 16-digit card number as "4821 XXXX XXXX XXXX".
+ */
+fun formatCardNumber(cardNumber: String): String {
+    val clean = cardNumber.replace(" ", "")
+    return clean.chunked(4).joinToString(" ")
+}
+
+/**
+ * Returns the masked version of a card number: "**** **** **** 1234".
+ */
+fun maskCardNumber(cardNumber: String): String {
+    val clean = cardNumber.replace(" ", "")
+    if (clean.length < 4) return clean
+    val lastFour = clean.takeLast(4)
+    return "**** **** **** $lastFour"
+}

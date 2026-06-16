@@ -16,6 +16,8 @@ import com.example.mystflowtb.ui.screens.*
 import com.example.mystflowtb.ui.theme.MystFlowTBTheme
 import com.example.mystflowtb.ui.viewmodel.AuthViewModel
 import com.example.mystflowtb.ui.viewmodel.AuthViewModelFactory
+import com.example.mystflowtb.ui.viewmodel.BankingViewModel
+import com.example.mystflowtb.ui.viewmodel.BankingViewModelFactory
 
 // Must extend FragmentActivity for AndroidX BiometricPrompt
 class MainActivity : FragmentActivity() {
@@ -26,6 +28,13 @@ class MainActivity : FragmentActivity() {
                 val factory = AuthViewModelFactory(this.applicationContext)
                 val authViewModel: AuthViewModel = viewModel(factory = factory)
                 val aiViewModel: AiViewModel = viewModel()
+
+                // BankingViewModel shares the same repository as AuthViewModel
+                val bankingFactory = remember { BankingViewModelFactory(authViewModel.repository) }
+                val bankingViewModel: BankingViewModel = viewModel(factory = bankingFactory)
+
+                // Observe current user profile
+                val currentUser by authViewModel.currentUser.collectAsState()
 
                 // Navigation State
                 var currentScreen by remember {
@@ -92,7 +101,54 @@ class MainActivity : FragmentActivity() {
                                 )
                             }
                             "HOME" -> {
-                                HomeScreen(viewModel = aiViewModel)
+                                // Refresh profile data every time we enter HomeScreen
+                                LaunchedEffect(Unit) {
+                                    authViewModel.loadCurrentProfile()
+                                    bankingViewModel.refreshProfile()
+                                    bankingViewModel.loadTransactions()
+                                }
+
+                                // Use the freshest profile from either source
+                                val bankingProfile by bankingViewModel.currentProfile.collectAsState()
+                                val displayProfile = bankingProfile ?: currentUser
+
+                                HomeScreen(
+                                    aiViewModel = aiViewModel,
+                                    bankingViewModel = bankingViewModel,
+                                    userProfile = displayProfile,
+                                    onNavigateToTopUp = { currentScreen = "TOP_UP" },
+                                    onNavigateToTransfer = { currentScreen = "TRANSFER" },
+                                    onLogout = {
+                                        authViewModel.signOut()
+                                        currentScreen = "WELCOME"
+                                    }
+                                )
+                            }
+                            "TOP_UP" -> {
+                                TopUpScreen(
+                                    bankingViewModel = bankingViewModel,
+                                    onBack = {
+                                        // Refresh profile when coming back
+                                        authViewModel.loadCurrentProfile()
+                                        bankingViewModel.refreshProfile()
+                                        currentScreen = "HOME"
+                                    }
+                                )
+                            }
+                            "TRANSFER" -> {
+                                val bankingProfile by bankingViewModel.currentProfile.collectAsState()
+                                val displayProfile = bankingProfile ?: currentUser
+
+                                TransferScreen(
+                                    bankingViewModel = bankingViewModel,
+                                    userProfile = displayProfile,
+                                    onBack = {
+                                        // Refresh profile when coming back
+                                        authViewModel.loadCurrentProfile()
+                                        bankingViewModel.refreshProfile()
+                                        currentScreen = "HOME"
+                                    }
+                                )
                             }
                         }
                     }

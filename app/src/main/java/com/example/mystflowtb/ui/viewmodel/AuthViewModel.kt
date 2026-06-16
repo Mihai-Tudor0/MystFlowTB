@@ -27,7 +27,7 @@ sealed class AuthUiState {
     data class Error(val message: String) : AuthUiState()
 }
 
-class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
+class AuthViewModel(val repository: AuthRepository) : ViewModel() {
 
     private val _authState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val authState: StateFlow<AuthUiState> = _authState.asStateFlow()
@@ -100,7 +100,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 repository.verifyOtp(phoneNumber, otpCode)
                 
                 if (isSignUp) {
-                    // Create the profile in the database
+                    // Create the profile in the database (also generates card number)
                     repository.createProfile(firstName, lastName, phoneNumber)
                 }
                 
@@ -113,7 +113,26 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     // ========================================================================
-    // 3. HELPERS
+    // 3. PROFILE MANAGEMENT
+    // ========================================================================
+
+    /**
+     * Loads/refreshes the current user's profile from Supabase.
+     * Call this when navigating to HomeScreen to get fresh balance and data.
+     */
+    fun loadCurrentProfile() {
+        viewModelScope.launch {
+            try {
+                val profile = repository.getCurrentProfile()
+                _currentUser.value = profile
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // ========================================================================
+    // 4. HELPERS
     // ========================================================================
 
     fun resetState() {
