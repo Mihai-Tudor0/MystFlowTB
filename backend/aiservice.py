@@ -58,7 +58,7 @@ def generate_chat_response(user_message: str, user_data: dict) -> str:
             return "Asistentul de chat este offline momentan."
 
         try:
-            model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+            model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite")
 
             # Îi dăm un context clar despre aplicația MystFlow ca să știe cum să ajute utilizatorul
             prompt = (
