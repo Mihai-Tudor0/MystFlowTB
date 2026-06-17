@@ -41,6 +41,8 @@ import com.example.mystflowtb.data.model.Card as BankCard
 import com.example.mystflowtb.ui.viewmodel.BankingViewModel
 import java.text.NumberFormat
 import java.util.Locale
+import io.github.jan.supabase.auth.auth
+import com.example.mystflowtb.data.remote.SupabaseProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,12 +79,15 @@ fun HomeScreen(
 
     val lazyListState = rememberLazyListState()
 
+    val transactions by bankingViewModel.transactions.collectAsState()
+    val currentUserId = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: ""
     // Load data on first composition
     LaunchedEffect(Unit) {
-        aiViewModel.fetchInsight(userId = 1)
-        bankingViewModel.refreshData()
+        if (currentUserId.isNotEmpty()) {
+            aiViewModel.fetchInsight(userId = currentUserId)
+        }
         bankingViewModel.loadTransactions()
-        showInsightDialog = true
+       // showInsightDialog = true
     }
 
     LaunchedEffect(aiViewModel.chatResponse.value) {
@@ -282,7 +287,10 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = { showInsightDialog = true },
+                        onClick = { showInsightDialog = true
+                            if (currentUserId.isNotEmpty()) {
+                            aiViewModel.fetchInsight(userId = currentUserId)
+                        }},
                         colors = ButtonDefaults.buttonColors(containerColor = cardBackground),
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
@@ -580,7 +588,18 @@ fun HomeScreen(
                                     chatMessages.add(Pair(textTrimis, true))
                                     userChatMessage = ""
                                     isWaitingForBot = true
-                                    aiViewModel.fetchChatResponse(textTrimis)
+
+                                    // if(ID valid de la Supabase)
+                                    if (currentUserId.isNotEmpty()) {
+                                        aiViewModel.fetchChatResponse(
+                                            message = textTrimis,
+                                            userId = currentUserId
+                                        )
+                                    } else {
+                                        // Fallback
+                                        chatMessages.add(Pair("Eroare: Sesiune expirată.", false))
+                                        isWaitingForBot = false
+                                    }
                                 }
                             },
                             containerColor = roseGold,
