@@ -19,10 +19,14 @@ import com.example.mystflowtb.ui.viewmodel.AuthViewModelFactory
 import com.example.mystflowtb.ui.viewmodel.BankingViewModel
 import com.example.mystflowtb.ui.viewmodel.BankingViewModelFactory
 
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.systemBarsPadding
+
 // Must extend FragmentActivity for AndroidX BiometricPrompt
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             MystFlowTBTheme {
                 val factory = AuthViewModelFactory(this.applicationContext)
@@ -60,7 +64,8 @@ class MainActivity : FragmentActivity() {
                             .fillMaxSize()
                             .background(premiumGradient)
                     ) {
-                        when (currentScreen) {
+                        Box(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+                            when (currentScreen) {
                             "WELCOME" -> {
                                 WelcomeScreen(
                                     onNextClicked = {
@@ -104,7 +109,7 @@ class MainActivity : FragmentActivity() {
                                 // Refresh profile data every time we enter HomeScreen
                                 LaunchedEffect(Unit) {
                                     authViewModel.loadCurrentProfile()
-                                    bankingViewModel.refreshProfile()
+                                    bankingViewModel.refreshData()
                                     bankingViewModel.loadTransactions()
                                 }
 
@@ -130,7 +135,7 @@ class MainActivity : FragmentActivity() {
                                     onBack = {
                                         // Refresh profile when coming back
                                         authViewModel.loadCurrentProfile()
-                                        bankingViewModel.refreshProfile()
+                                        bankingViewModel.refreshData()
                                         currentScreen = "HOME"
                                     }
                                 )
@@ -145,7 +150,7 @@ class MainActivity : FragmentActivity() {
                                     onBack = {
                                         // Refresh profile when coming back
                                         authViewModel.loadCurrentProfile()
-                                        bankingViewModel.refreshProfile()
+                                        bankingViewModel.refreshData()
                                         currentScreen = "HOME"
                                     }
                                 )
@@ -156,4 +161,5 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+}
 }

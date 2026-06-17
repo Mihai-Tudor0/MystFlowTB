@@ -20,6 +20,18 @@ data class Transaction(
     @SerialName("receiver_id")
     val receiverId: String,
 
+    @SerialName("sender_card_id")
+    val senderCardId: String? = null,
+
+    @SerialName("receiver_card_id")
+    val receiverCardId: String? = null,
+
+    @SerialName("sender_name")
+    val senderName: String? = null,
+
+    @SerialName("receiver_name")
+    val receiverName: String? = null,
+
     val amount: Double,
 
     /** "top_up" or "transfer" */

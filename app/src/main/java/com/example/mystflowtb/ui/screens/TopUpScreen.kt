@@ -30,6 +30,9 @@ fun TopUpScreen(
     val cardBackground = Color(0xFF002920)
 
     val bankingState by bankingViewModel.bankingState.collectAsState()
+    val cards by bankingViewModel.cards.collectAsState()
+    val selectedCardIndex by bankingViewModel.selectedCardIndex.collectAsState()
+    val selectedCard = if (cards.isNotEmpty() && selectedCardIndex < cards.size) cards[selectedCardIndex] else null
 
     var externalCardNumber by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
@@ -260,7 +263,7 @@ fun TopUpScreen(
         // ================= TOP UP BUTTON =================
         val parsedAmount = amount.toDoubleOrNull() ?: 0.0
         val externalDigits = externalCardNumber.replace(" ", "")
-        val isValid = externalDigits.length == 16 && parsedAmount > 0
+        val isValid = externalDigits.length == 16 && parsedAmount > 0 && selectedCard != null
 
         Button(
             onClick = { showConfirmDialog = true },
@@ -320,7 +323,9 @@ fun TopUpScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showConfirmDialog = false
-                    bankingViewModel.topUp(parsedAmountForDialog)
+                    selectedCard?.id?.let { cardId ->
+                        bankingViewModel.topUp(cardId, parsedAmountForDialog)
+                    }
                 }) {
                     Text("CONFIRMĂ", color = roseGold, fontWeight = FontWeight.Bold)
                 }
