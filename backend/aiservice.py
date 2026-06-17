@@ -20,10 +20,12 @@ def generate_security_insights(user_data: dict) -> str:
         return f"Salut {user_data['username']}, pentru o siguranță maximă a contului MystFlow, îți recomandăm să folosești o parolă unică și să activezi autentificarea în doi pași (2FA)."
 
     prompt = (
-        "Instrucțiune de sistem: Ești Agentul Analist de Securitate al aplicației MystFlow. "
-        "Oferă-i acestui utilizator un sfat scurt de securitate în limba română (maximum 3 propoziții), "
-        f"știind că nu are activată autentificarea în doi pași. Date utilizator: {user_data}\n"
-        "Sfatul tău de securitate:"
+        "Instrucțiune de sistem: Ești Agentul Analist de Securitate al aplicației financiare MystFlow. "
+        "Aplicația folosește un sistem de securitate avansat: autentificare prin Număr de Telefon (SMS OTP) "
+        "și protecție locală cu PIN și Amprentă (Biometrie). "
+        f"Oferă-i utilizatorului ({user_data.get('username', 'Utilizator')}) un singur sfat scurt și util de securitate (max 2 propoziții) în limba română. "
+        "Exemple de idei: să nu divulge codul OTP primit prin SMS nimănui (nici măcar angajaților MystFlow), să mențină amprenta activă pentru o deblocare rapidă și sigură, sau să fie atent la atacurile de tip phishing (mesaje false). "
+        "Fii direct, profestionist și nu folosi formule de salut la început, scrie direct sfatul."
     )
 
     headers = {
@@ -56,15 +58,24 @@ def generate_chat_response(user_message: str, user_data: dict) -> str:
             return "Asistentul de chat este offline momentan."
 
         try:
-            model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+            model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite")
 
             # Îi dăm un context clar despre aplicația MystFlow ca să știe cum să ajute utilizatorul
             prompt = (
-                "Instrucțiune de sistem: Ești MystBot, asistentul digital inteligent din interiorul aplicației MystFlow. "
-                "Rolul tău este să ajuți utilizatorul cu întrebări despre aplicație, securitate și suport tehnic. "
-                "Fii prietenos, dar răspunde DIRECT, scurt (maximum 3-4 propoziții) în limba română. "
-                "REGULĂ STRICTĂ: NU saluta utilizatorul la începutul mesajului și nu te mai prezenta, trece direct la subiect! "
-                f"Date utilizator: {user_data['username']}.\n\n"
+                "Instrucțiune de sistem: Ești MystBot, asistentul digital integrat în aplicația financiară MystFlow. "
+                "Rolul tău este să ajuți utilizatorul cu întrebări despre aplicație, securitate și operațiuni. "
+                "Aplicația MystFlow are următoarele funcționalități:\n"
+                "1. Autentificare securizată prin Număr de Telefon (SMS OTP) la creare/logare, plus protecție cu PIN sau Amprentă la deschiderea pe telefon.\n"
+                "2. Un ecran principal cu Balanța disponibilă și un card virtual 'MystFlow Premium' cu număr de card ce poate fi copiat.\n"
+                "3. Butonul 'Alimentează' - folosit pentru a adăuga bani în cont.\n"
+                "4. Butonul 'Transferă' - folosit pentru a trimite bani altor persoane din MystFlow.\n"
+                "5. Secțiunea 'Activitate recentă' în partea de jos, unde se văd istoricul și notificările tranzacțiilor.\n"
+                f"Numele utilizatorului cu care vorbești este: {user_data.get('username', 'Utilizator')}.\n"
+                "REGULI STRICTE PENTRU TINE: \n"
+                "- Fii prietenos, dar răspunde DIRECT și scurt (maximum 2-3 propoziții).\n"
+                "- NU saluta utilizatorul la începutul mesajului și nu te mai prezenta, trece direct la subiect.\n"
+                "- Dacă te întreabă cum să bage bani, spune-i să apese pe butonul 'Alimentează'.\n"
+                "- Dacă te întreabă cum să trimită bani, spune-i să folosească butonul 'Transferă'.\n\n"
                 f"Mesajul utilizatorului: {user_message}\n"
                 "Răspunsul tău:"
             )
