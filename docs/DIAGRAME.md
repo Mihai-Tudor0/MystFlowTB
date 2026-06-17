@@ -44,10 +44,10 @@ sequenceDiagram
     participant Repo as AuthRepository
     participant DB as Supabase Auth
 
-    U->>UI: Introduce Email & Parolă
+    U->>UI: Introduce Nr. telefon
     U->>UI: Click Login
-    UI->>VM: login(email, password)
-    VM->>Repo: signIn(email, password)
+    UI->>VM: login(phone/PIN)
+    VM->>Repo: signIn(phone/PIN)
     Repo->>DB: cerere de autentificare
     alt Credențiale Invalide
         DB-->>Repo: Eroare Auth
