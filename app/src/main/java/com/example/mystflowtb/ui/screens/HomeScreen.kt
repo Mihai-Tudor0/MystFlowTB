@@ -71,7 +71,7 @@ fun HomeScreen(
             aiViewModel.fetchInsight(userId = currentUserId)
         }
         bankingViewModel.loadTransactions()
-        showInsightDialog = true
+       // showInsightDialog = true
     }
 
     LaunchedEffect(aiViewModel.chatResponse.value) {
@@ -285,7 +285,10 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
-                        onClick = { showInsightDialog = true },
+                        onClick = { showInsightDialog = true
+                            if (currentUserId.isNotEmpty()) {
+                            aiViewModel.fetchInsight(userId = currentUserId)
+                        }},
                         colors = ButtonDefaults.buttonColors(containerColor = cardBackground),
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
