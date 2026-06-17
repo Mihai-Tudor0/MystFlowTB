@@ -6,10 +6,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.CallReceived
+import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +37,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.mystflowtb.AiViewModel
 import com.example.mystflowtb.data.model.Transaction
 import com.example.mystflowtb.data.model.UserProfile
+import com.example.mystflowtb.data.model.Card as BankCard
 import com.example.mystflowtb.ui.viewmodel.BankingViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -48,10 +58,16 @@ fun HomeScreen(
 
     val firstName = userProfile?.firstName ?: "Utilizator"
     val lastName = userProfile?.lastName ?: ""
-    val balance = userProfile?.balance ?: 0.0
-    val cardNumber = userProfile?.cardNumber ?: "0000000000000000"
 
-    val clipboardManager = LocalClipboardManager.current
+    val cards by bankingViewModel.cards.collectAsState()
+    val selectedCardIndex by bankingViewModel.selectedCardIndex.collectAsState()
+    val transactions by bankingViewModel.transactions.collectAsState()
+
+    val currentBalance = if (cards.isNotEmpty() && selectedCardIndex < cards.size) {
+        cards[selectedCardIndex].balance
+    } else {
+        0.0
+    }
 
     var showInsightDialog by remember { mutableStateOf(false) }
     var showChatDialog by remember { mutableStateOf(false) }
@@ -61,11 +77,10 @@ fun HomeScreen(
 
     val lazyListState = rememberLazyListState()
 
-    val transactions by bankingViewModel.transactions.collectAsState()
-
     // Load data on first composition
     LaunchedEffect(Unit) {
         aiViewModel.fetchInsight(userId = 1)
+        bankingViewModel.refreshData()
         bankingViewModel.loadTransactions()
         showInsightDialog = true
     }
@@ -116,7 +131,7 @@ fun HomeScreen(
                     }
                     IconButton(onClick = onLogout) {
                         Icon(
-                            Icons.Default.Logout,
+                            Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Deconectare",
                             tint = roseGold,
                             modifier = Modifier.size(28.dp)
@@ -131,85 +146,63 @@ fun HomeScreen(
                 Text(text = "Balanță disponibilă", color = Color.LightGray, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = formatBalance(balance),
+                    text = formatBalance(currentBalance),
                     color = roseGold,
                     fontSize = 36.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            // ================= CARD =================
+            // ================= CARDS CAROUSEL =================
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFF003D2E),
-                                        Color(0xFF001F15)
-                                    )
-                                )
+                if (cards.isEmpty()) {
+                    CircularProgressIndicator(color = roseGold, modifier = Modifier.align(Alignment.Center))
+                } else {
+                    val pagerState = rememberPagerState(
+                        initialPage = selectedCardIndex,
+                        pageCount = { cards.size + 1 }
+                    )
+
+                    LaunchedEffect(pagerState.currentPage) {
+                        if (pagerState.currentPage < cards.size) {
+                            bankingViewModel.setSelectedCardIndex(pagerState.currentPage)
+                        }
+                    }
+
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { page ->
+                        if (page < cards.size) {
+                            FlipCardView(
+                                card = cards[page],
+                                firstName = firstName,
+                                lastName = lastName,
+                                roseGold = roseGold
                             )
-                            .padding(24.dp)
+                        } else {
+                            AddCardView(
+                                onAddCard = { bankingViewModel.addNewCard() },
+                                cardBackground = cardBackground,
+                                roseGold = roseGold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "MystFlow Premium",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-                                Icon(
-                                    Icons.Default.CreditCard,
-                                    contentDescription = "Card",
-                                    tint = roseGold
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(28.dp))
-                            Text(
-                                text = formatCardNumber(cardNumber),
-                                color = Color.White,
-                                fontSize = 20.sp,
-                                letterSpacing = 2.sp,
-                                fontWeight = FontWeight.Medium
+                        repeat(cards.size + 1) { iteration ->
+                            val color = if (pagerState.currentPage == iteration) roseGold else Color.Gray.copy(alpha = 0.5f)
+                            Box(
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .size(8.dp)
+                                    .background(color, RoundedCornerShape(50))
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "$firstName $lastName",
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 14.sp
-                                )
-                                // Copy card number button
-                                IconButton(
-                                    onClick = {
-                                        clipboardManager.setText(AnnotatedString(cardNumber))
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ContentCopy,
-                                        contentDescription = "Copiază nr. card",
-                                        tint = roseGold.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -227,20 +220,24 @@ fun HomeScreen(
                         onClick = onNavigateToTopUp,
                         colors = ButtonDefaults.buttonColors(containerColor = roseGold),
                         modifier = Modifier.weight(1f).height(56.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        enabled = cards.isNotEmpty() && selectedCardIndex < cards.size
                     ) {
                         Icon(
                             Icons.Default.Add,
                             contentDescription = "Alimentează",
                             tint = emeraldDeep,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             "Alimentează",
                             color = emeraldDeep,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     // Transfer
@@ -248,20 +245,24 @@ fun HomeScreen(
                         onClick = onNavigateToTransfer,
                         colors = ButtonDefaults.buttonColors(containerColor = cardBackground),
                         modifier = Modifier.weight(1f).height(56.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        enabled = cards.isNotEmpty() && selectedCardIndex < cards.size
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Transferă",
                             tint = roseGold,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             "Transferă",
                             color = roseGold,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -588,7 +589,7 @@ fun HomeScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                Icons.Default.Send,
+                                Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "Trimite",
                                 modifier = Modifier.size(18.dp)
                             )
@@ -603,6 +604,191 @@ fun HomeScreen(
 // ================= HELPER COMPOSABLES =================
 
 @Composable
+fun FlipCardView(
+    card: BankCard,
+    firstName: String,
+    lastName: String,
+    roseGold: Color
+) {
+    var flipped by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (flipped) 180f else 0f,
+        animationSpec = tween(durationMillis = 400),
+        label = "flipAnimation"
+    )
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .graphicsLayer {
+                rotationY = rotation
+                cameraDistance = 12f * density
+            }
+            .clickable { flipped = !flipped }
+    ) {
+        if (rotation <= 90f) {
+            // Front of card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF003D2E),
+                                Color(0xFF001F15)
+                            )
+                        )
+                    )
+                    .padding(24.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "MystFlow Premium",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Icon(
+                            Icons.Default.CreditCard,
+                            contentDescription = "Card",
+                            tint = roseGold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(28.dp))
+                    Text(
+                        text = maskCardNumber(card.cardNumber),
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        letterSpacing = 2.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "$firstName $lastName",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Apasă pentru detalii",
+                            color = roseGold.copy(alpha = 0.7f),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        } else {
+            // Back of card
+            val clipboardManager = LocalClipboardManager.current
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF001F15),
+                                Color(0xFF003D2E)
+                            )
+                        )
+                    )
+                    .padding(top = 16.dp, bottom = 24.dp)
+                    .graphicsLayer {
+                        rotationY = 180f // Un-mirror the text
+                    }
+            ) {
+                Column {
+                    // Magnetic stripe
+                    Box(modifier = Modifier.fillMaxWidth().height(40.dp).background(Color.Black.copy(alpha = 0.8f)))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formatCardNumber(card.cardNumber),
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                letterSpacing = 2.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            IconButton(
+                                onClick = { clipboardManager.setText(AnnotatedString(card.cardNumber)) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Copiază nr. card",
+                                    tint = roseGold,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("EXP", color = Color.Gray, fontSize = 10.sp)
+                                Text(card.expiryDate, color = Color.White, fontSize = 14.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("CVV", color = Color.Gray, fontSize = 10.sp)
+                                Text(card.cvv, color = Color.White, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AddCardView(
+    onAddCard: () -> Unit,
+    cardBackground: Color,
+    roseGold: Color
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cardBackground.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .padding(horizontal = 8.dp)
+            .clickable(onClick = onAddCard)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Default.AddCircleOutline,
+                    contentDescription = "Adaugă card",
+                    tint = roseGold,
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Cere un card nou", color = roseGold, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+@Composable
 private fun TransactionItem(
     transaction: Transaction,
     currentUserId: String?,
@@ -612,6 +798,12 @@ private fun TransactionItem(
 ) {
     val isReceived = transaction.receiverId == currentUserId
     val isTopUp = transaction.type == "top_up"
+    
+    val titleText = when {
+        isTopUp -> "Alimentare cont"
+        isReceived -> transaction.senderName ?: "Transfer primit"
+        else -> transaction.receiverName ?: "Transfer trimis"
+    }
 
     Card(
         colors = CardDefaults.cardColors(containerColor = cardBackground),
@@ -629,8 +821,8 @@ private fun TransactionItem(
                 Icon(
                     imageVector = when {
                         isTopUp -> Icons.Default.AccountBalanceWallet
-                        isReceived -> Icons.Default.CallReceived
-                        else -> Icons.Default.CallMade
+                        isReceived -> Icons.AutoMirrored.Filled.CallReceived
+                        else -> Icons.AutoMirrored.Filled.CallMade
                     },
                     contentDescription = null,
                     tint = if (isReceived || isTopUp) Color(0xFF4CAF50) else Color(0xFFEF5350),
@@ -639,11 +831,7 @@ private fun TransactionItem(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = when {
-                            isTopUp -> "Alimentare cont"
-                            isReceived -> "Transfer primit"
-                            else -> "Transfer trimis"
-                        },
+                        text = titleText,
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
@@ -669,28 +857,19 @@ private fun TransactionItem(
 
 // ================= UTILITY FUNCTIONS =================
 
-/**
- * Formats a balance value as "12,345.00 RON".
- */
 fun formatBalance(amount: Double): String {
-    val formatter = NumberFormat.getNumberInstance(Locale("ro", "RO")).apply {
+    val formatter = NumberFormat.getNumberInstance(Locale.Builder().setLanguage("ro").setRegion("RO").build()).apply {
         minimumFractionDigits = 2
         maximumFractionDigits = 2
     }
     return "${formatter.format(amount)} RON"
 }
 
-/**
- * Formats a 16-digit card number as "4821 XXXX XXXX XXXX".
- */
 fun formatCardNumber(cardNumber: String): String {
     val clean = cardNumber.replace(" ", "")
     return clean.chunked(4).joinToString(" ")
 }
 
-/**
- * Returns the masked version of a card number: "**** **** **** 1234".
- */
 fun maskCardNumber(cardNumber: String): String {
     val clean = cardNumber.replace(" ", "")
     if (clean.length < 4) return clean

@@ -3,6 +3,7 @@ package com.example.mystflowtb.data.repository
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.example.mystflowtb.data.model.Card
 import com.example.mystflowtb.data.model.CardLookupResult
 import com.example.mystflowtb.data.model.Transaction
 import com.example.mystflowtb.data.model.UserProfile
@@ -30,6 +31,7 @@ class AuthRepository(context: Context) {
     private val supabase = SupabaseProvider.client
     private val auth = supabase.auth
     private val profilesTable = "profiles"
+    private val cardsTable = "cards"
     private val transactionsTable = "transactions"
 
     // --- Local Storage for PIN ---
@@ -89,18 +91,45 @@ class AuthRepository(context: Context) {
     suspend fun createProfile(firstName: String, lastName: String, phoneNumber: String) {
         val user = auth.currentUserOrNull() ?: throw Exception("User not authenticated")
         
-        val cardNumber = generateCardNumber()
-
         val profile = UserProfile(
             id = user.id,
             firstName = firstName,
             lastName = lastName,
-            phoneNumber = phoneNumber,
-            balance = 0.0,
-            cardNumber = cardNumber
+            phoneNumber = phoneNumber
         )
 
         supabase.postgrest[profilesTable].insert(profile)
+        
+        // Generate the user's first card automatically
+        generateNewCard()
+    }
+
+    /**
+     * Generates a new card for the current user and saves it to the database.
+     */
+    suspend fun generateNewCard() {
+        val user = auth.currentUserOrNull() ?: throw Exception("User not authenticated")
+        
+        val cardNumber = generateCardNumber()
+        val cvv = String.format("%03d", Random.nextInt(100, 1000))
+        
+        // Expiry Date (MM/YY) -> 5 years from now
+        val calendar = java.util.Calendar.getInstance()
+        val currentYear = calendar.get(java.util.Calendar.YEAR) % 100
+        val currentMonth = calendar.get(java.util.Calendar.MONTH) + 1
+        val expiryYear = currentYear + 5
+        val expiryDate = String.format("%02d/%02d", currentMonth, expiryYear)
+
+        val card = Card(
+            userId = user.id,
+            cardNumber = cardNumber,
+            cvv = cvv,
+            expiryDate = expiryDate,
+            balance = 0.0,
+            isActive = true
+        )
+        
+        supabase.postgrest[cardsTable].insert(card)
     }
 
     /**
@@ -114,6 +143,19 @@ class AuthRepository(context: Context) {
             }
             .decodeList<UserProfile>()
         return result.firstOrNull()
+    }
+
+    /**
+     * Fetches all cards belonging to the current user.
+     */
+    suspend fun fetchUserCards(): List<Card> {
+        val user = auth.currentUserOrNull() ?: return emptyList()
+        return supabase.postgrest[cardsTable]
+            .select {
+                filter { eq("user_id", user.id) }
+                order("created_at", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+            }
+            .decodeList<Card>()
     }
 
     // ========================================================================
@@ -133,11 +175,11 @@ class AuthRepository(context: Context) {
             val cardNumber = generateLuhnCardNumber()
             
             // Check uniqueness
-            val existing = supabase.postgrest[profilesTable]
+            val existing = supabase.postgrest[cardsTable]
                 .select {
                     filter { eq("card_number", cardNumber) }
                 }
-                .decodeList<UserProfile>()
+                .decodeList<Card>()
             
             if (existing.isEmpty()) {
                 return cardNumber
@@ -189,29 +231,27 @@ class AuthRepository(context: Context) {
     // ========================================================================
 
     /**
-     * Top up the current user's account with the given amount.
-     * Uses the Supabase RPC function `top_up` for atomic operation.
+     * Top up the specific card with the given amount.
      */
-    suspend fun topUp(amount: Double) {
+    suspend fun topUp(cardId: String, amount: Double) {
         supabase.postgrest.rpc(
             "top_up",
             buildJsonObject {
+                put("p_card_id", cardId)
                 put("p_amount", amount)
             }
         )
     }
 
     /**
-     * Transfer money to another user by their card number.
-     * Uses the Supabase RPC function `perform_transfer` for atomic operation.
-     *
-     * @throws Exception if insufficient balance, recipient not found, or self-transfer
+     * Transfer money from a specific card to another user's card.
      */
-    suspend fun transfer(recipientCardNumber: String, amount: Double) {
+    suspend fun transfer(fromCardId: String, recipientCardNumber: String, amount: Double) {
         supabase.postgrest.rpc(
             "perform_transfer",
             buildJsonObject {
-                put("p_recipient_card", recipientCardNumber)
+                put("p_from_card_id", fromCardId)
+                put("p_recipient_card_number", recipientCardNumber)
                 put("p_amount", amount)
             }
         )
@@ -253,13 +293,7 @@ class AuthRepository(context: Context) {
             .decodeList<Transaction>()
     }
 
-    /**
-     * Returns the current user's balance.
-     */
-    suspend fun getBalance(): Double {
-        val profile = getCurrentProfile()
-        return profile?.balance ?: 0.0
-    }
+
 
     // ========================================================================
     // 5. LOCAL AUTHENTICATION (PIN)

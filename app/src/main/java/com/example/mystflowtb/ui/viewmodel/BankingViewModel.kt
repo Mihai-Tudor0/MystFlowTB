@@ -3,6 +3,7 @@ package com.example.mystflowtb.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.mystflowtb.data.model.Card
 import com.example.mystflowtb.data.model.CardLookupResult
 import com.example.mystflowtb.data.model.Transaction
 import com.example.mystflowtb.data.model.UserProfile
@@ -42,20 +43,30 @@ class BankingViewModel(private val repository: AuthRepository) : ViewModel() {
     private val _currentProfile = MutableStateFlow<UserProfile?>(null)
     val currentProfile: StateFlow<UserProfile?> = _currentProfile.asStateFlow()
 
+    private val _cards = MutableStateFlow<List<Card>>(emptyList())
+    val cards: StateFlow<List<Card>> = _cards.asStateFlow()
+
+    private val _selectedCardIndex = MutableStateFlow(0)
+    val selectedCardIndex: StateFlow<Int> = _selectedCardIndex.asStateFlow()
+
+    fun setSelectedCardIndex(index: Int) {
+        _selectedCardIndex.value = index
+    }
+
     // ========================================================================
     // 1. TOP-UP
     // ========================================================================
 
     /**
-     * Top up the current user's account.
-     * After success, refreshes the profile to get the updated balance.
+     * Top up the specified card.
      */
-    fun topUp(amount: Double) {
+    fun topUp(cardId: String, amount: Double) {
         viewModelScope.launch {
             _bankingState.value = BankingUiState.Loading
             try {
-                repository.topUp(amount)
-                refreshProfile()
+                repository.topUp(cardId, amount)
+                refreshData()
+                loadTransactions()
                 _bankingState.value = BankingUiState.Success(
                     "Contul a fost alimentat cu %.2f RON".format(amount)
                 )
@@ -73,17 +84,16 @@ class BankingViewModel(private val repository: AuthRepository) : ViewModel() {
     // ========================================================================
 
     /**
-     * Transfer money to another user by their card number.
-     * After success, refreshes the profile to get the updated balance.
+     * Transfer money from a specific card to another user by their card number.
      */
-    fun transfer(recipientCardNumber: String, amount: Double) {
+    fun transfer(fromCardId: String, recipientCardNumber: String, amount: Double) {
         viewModelScope.launch {
             _bankingState.value = BankingUiState.Loading
             try {
                 // Clean card number (remove spaces)
                 val cleanCard = recipientCardNumber.replace(" ", "")
-                repository.transfer(cleanCard, amount)
-                refreshProfile()
+                repository.transfer(fromCardId, cleanCard, amount)
+                refreshData()
                 loadTransactions()
                 _bankingState.value = BankingUiState.Success(
                     "Transfer de %.2f RON efectuat cu succes!".format(amount)
@@ -149,18 +159,41 @@ class BankingViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     // ========================================================================
-    // 4. PROFILE REFRESH
+    // 4. PROFILE & CARDS REFRESH
     // ========================================================================
 
     /**
-     * Refreshes the cached profile (used after top-up/transfer to update balance).
+     * Refreshes the cached profile and cards.
      */
-    fun refreshProfile() {
+    fun refreshData() {
         viewModelScope.launch {
             try {
                 _currentProfile.value = repository.getCurrentProfile()
+                val loadedCards = repository.fetchUserCards()
+                _cards.value = loadedCards
+                if (_selectedCardIndex.value >= loadedCards.size && loadedCards.isNotEmpty()) {
+                    _selectedCardIndex.value = loadedCards.size - 1
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Generates a new card for the user.
+     */
+    fun addNewCard() {
+        viewModelScope.launch {
+            _bankingState.value = BankingUiState.Loading
+            try {
+                repository.generateNewCard()
+                refreshData()
+                _bankingState.value = BankingUiState.Success("Card nou creat cu succes!")
+                _selectedCardIndex.value = _cards.value.size - 1 // Switch to new card
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _bankingState.value = BankingUiState.Error("Eroare la crearea cardului: ${e.message}")
             }
         }
     }

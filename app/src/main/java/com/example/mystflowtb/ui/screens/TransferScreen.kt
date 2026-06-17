@@ -33,12 +33,16 @@ fun TransferScreen(
 
     val bankingState by bankingViewModel.bankingState.collectAsState()
     val recipientLookup by bankingViewModel.recipientLookup.collectAsState()
+    
+    val cards by bankingViewModel.cards.collectAsState()
+    val selectedCardIndex by bankingViewModel.selectedCardIndex.collectAsState()
+    val selectedCard = if (cards.isNotEmpty() && selectedCardIndex < cards.size) cards[selectedCardIndex] else null
 
     var recipientCardNumber by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
 
-    val balance = userProfile?.balance ?: 0.0
+    val balance = selectedCard?.balance ?: 0.0
 
     // Look up recipient as the user types
     LaunchedEffect(recipientCardNumber) {
@@ -107,7 +111,7 @@ fun TransferScreen(
             ) {
                 Column {
                     Text(
-                        text = "Balanță disponibilă",
+                        text = "Balanță card curent",
                         color = Color.LightGray,
                         fontSize = 13.sp
                     )
@@ -330,7 +334,8 @@ fun TransferScreen(
         val isValid = recipientDigits.length == 16 &&
                 parsedAmount > 0 &&
                 parsedAmount <= balance &&
-                recipientLookup != null
+                recipientLookup != null &&
+                selectedCard != null
 
         Button(
             onClick = { showConfirmDialog = true },
@@ -411,7 +416,9 @@ fun TransferScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showConfirmDialog = false
-                    bankingViewModel.transfer(recipientCardNumber, parsedAmountForDialog)
+                    selectedCard?.id?.let { cardId ->
+                        bankingViewModel.transfer(cardId, recipientCardNumber, parsedAmountForDialog)
+                    }
                 }) {
                     Text("CONFIRMĂ", color = roseGold, fontWeight = FontWeight.Bold)
                 }
