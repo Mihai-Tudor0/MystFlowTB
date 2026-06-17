@@ -373,6 +373,7 @@ fun HomeScreen(
                     TransactionItem(
                         transaction = transaction,
                         currentUserId = userProfile?.id,
+                        aiViewModel = aiViewModel,
                         roseGold = roseGold,
                         cardBackground = cardBackground,
                         emeraldDeep = emeraldDeep
@@ -811,6 +812,7 @@ fun AddCardView(
 private fun TransactionItem(
     transaction: Transaction,
     currentUserId: String?,
+    aiViewModel: AiViewModel,
     roseGold: Color,
     cardBackground: Color,
     emeraldDeep: Color
@@ -862,6 +864,27 @@ private fun TransactionItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    
+                    val category = aiViewModel.transactionCategories[transaction.id]
+                    if (category != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "🤖 AI Categorie: $category",
+                            color = roseGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "✨ Apasă pentru clasificare AI",
+                            color = roseGold.copy(alpha = 0.7f),
+                            fontSize = 11.sp,
+                            modifier = Modifier.clickable {
+                                aiViewModel.classifyTransaction(transaction.id ?: "", transaction.description ?: "Tranzacție simplă")
+                            }
+                        )
+                    }
                 }
             }
             Text(

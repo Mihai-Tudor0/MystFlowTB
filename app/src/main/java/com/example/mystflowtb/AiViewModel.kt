@@ -51,4 +51,25 @@ class AiViewModel : ViewModel() {
             }
         }
     }
+
+    // Al doilea agent AI: Clasificator de tranzacții
+    var transactionCategories = androidx.compose.runtime.mutableStateMapOf<String, String>()
+        private set
+
+    fun classifyTransaction(transactionId: String, description: String) {
+        viewModelScope.launch {
+            try {
+                transactionCategories[transactionId] = "Analiză..."
+                val prompt = "Ești un clasificator bancar. Răspunde doar cu UN SINGUR cuvânt care reprezintă categoria (ex: Food, Bills, Transfer, Entertainment, Income) pentru această tranzacție: $description"
+                val response = ApiClient.apiService.getChatResponse(com.example.mystflowtb.ChatMessageRequest(message = prompt, user_id = "classifier"))
+                if (response.isSuccessful && response.body() != null) {
+                    transactionCategories[transactionId] = response.body()!!.insight.trim()
+                } else {
+                    transactionCategories[transactionId] = "Unknown"
+                }
+            } catch (e: Exception) {
+                transactionCategories[transactionId] = "Error"
+            }
+        }
+    }
 }
