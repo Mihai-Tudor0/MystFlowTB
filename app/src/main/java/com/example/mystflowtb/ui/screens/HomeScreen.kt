@@ -79,15 +79,15 @@ fun HomeScreen(
 
     val lazyListState = rememberLazyListState()
 
-    val transactions by bankingViewModel.transactions.collectAsState()
-    val currentUserId = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: ""
+    val currentUserId = userProfile?.id ?: ""
     // Load data on first composition
     LaunchedEffect(Unit) {
         if (currentUserId.isNotEmpty()) {
-            aiViewModel.fetchInsight(userId = currentUserId)
+            aiViewModel.fetchInsight(userId = currentUserId) 
         }
+        bankingViewModel.refreshData()
         bankingViewModel.loadTransactions()
-       // showInsightDialog = true
+        //showInsightDialog = true
     }
 
     LaunchedEffect(aiViewModel.chatResponse.value) {
